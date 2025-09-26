@@ -221,7 +221,18 @@ class Color:
         5. Return new Color with blended values
         """
 
-        pass  # Remove this line when implementing
+        alpha = self.a
+        background_alpha = background.a
+
+        # Result alpha
+        result_alpha = alpha + (1 - alpha) * background_alpha
+
+        # Result RGB
+        result_r = alpha * self.r + (1 - alpha) * background.r
+        result_g = alpha * self.g + (1 - alpha) * background.g
+        result_b = alpha * self.b + (1 - alpha) * background.b
+
+        return Color(result_r, result_g, result_b, result_alpha)
     
     def __mul__(self, factor: float) -> 'Color':
         """Multiply color by factor."""
