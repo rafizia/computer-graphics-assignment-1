@@ -52,9 +52,12 @@ class Viewport:
         - Use viewport parameters (self.x, self.y, self.span)
         - Return proper transformation matrix
         """
+        # Translate center (x,y) to origin
+        T = Matrix3x3.translation(-self.x, -self.y)
+        # Scale so that span maps to 1, range becomes [-1,1]
+        S = Matrix3x3.scale(1.0 / self.span, 1.0 / self.span)
 
-        pass  # Remove this line when implementing
-
+        return S * T
 
 class ViewportImp(Viewport):
     """Implementation class for viewport with additional functionality."""
@@ -551,8 +554,48 @@ class SoftwareRenderer:
         - Transforms accumulate down the hierarchy
         - Child transforms are relative to parent
         """
+        # Save current transform
+        self.transform_stack.append(self.current_transform)
 
-        pass  # Remove this line when implementing the rest
+        # Apply local transform
+        if hasattr(element, "transform") and element.transform is not None:
+            self.current_transform = self.current_transform * element.transform
+
+        # Draw element based on its type
+        if isinstance(element, SVGLine):
+            color = element.get_stroke_color()
+            width = element.get_stroke_width()
+            self.rasterize_line(element.start, element.end, color, width)
+
+        elif isinstance(element, SVGTriangle):
+            color = element.get_color()
+            self.rasterize_triangle(element.vertices, color)
+
+        elif isinstance(element, SVGPolygon):
+            verts = element.vertices
+            if len(verts) >= 3:
+                color = element.get_color()
+                for i in range(1, len(verts) - 1):
+                    self.rasterize_triangle([verts[0], verts[i], verts[i+1]], color)
+
+        elif isinstance(element, SVGRect):
+            x0, y0 = element.x, element.y
+            x1, y1 = x0 + element.width, y0 + element.height
+            v0, v1, v2, v3 = Vector2D(x0, y0), Vector2D(x1, y0), Vector2D(x0, y1), Vector2D(x1, y1)
+
+            color = element.get_color()
+            self.rasterize_triangle([v0, v1, v2], color)
+            self.rasterize_triangle([v2, v1, v3], color)
+
+        elif isinstance(element, SVGImage):
+            self.rasterize_image(element)
+
+        elif isinstance(element, SVGGroup):
+            for child in element.children:
+                self.draw_element(child)
+
+        # Restore previous transform
+        self.current_transform = self.transform_stack.pop()
     
     def draw_svg(self, svg: SVG):
         """Draw an entire SVG document."""
