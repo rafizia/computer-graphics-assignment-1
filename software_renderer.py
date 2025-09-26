@@ -160,8 +160,20 @@ class SoftwareRenderer:
         3. Blend new color with existing using alpha blending
         4. Store blended result back to buffer
         """
-    
-        pass  # Remove this line when implementing
+        sample_buffer_width  = self.width  * self.sample_rate
+        sample_buffer_height = self.height * self.sample_rate
+
+        if 0 <= x < sample_buffer_width and 0 <= y < sample_buffer_height:
+            old = self.sample_buffer[y, x]
+            src = np.array([color.r, color.g, color.b, color.a], dtype=np.float32)
+
+            af = src[3]
+            ab = old[3]
+
+            out_rgb = af * src[:3] + (1 - af) * old[:3]
+            out_a   = af + (1 - af) * ab
+
+            self.sample_buffer[y, x] = [out_rgb[0], out_rgb[1], out_rgb[2], out_a]
     
     def fill_pixel(self, x: int, y: int, color: Color):
         """Fill a pixel with supersampling."""
@@ -180,8 +192,12 @@ class SoftwareRenderer:
         2. Calculate sample coordinates: x*sample_rate + sx, y*sample_rate + sy
         3. Call fill_sample() for each sample coordinate
         """
-
-        pass  # Remove this line when implementing
+        if 0 <= x < self.width and 0 <= y < self.height:
+            for i in range(self.sample_rate):
+                for j in range(self.sample_rate):
+                    sx = x * self.sample_rate + i
+                    sy = y * self.sample_rate + j
+                    self.fill_sample(sx, sy, color)
     
     def resolve(self):
         """Resolve sample buffer to pixel buffer using box filter."""
@@ -208,8 +224,31 @@ class SoftwareRenderer:
         - sample_buffer: [sample_height, sample_width, 4] float array
         - pixel_buffer: [height * width * 4] uint8 array (RGBA interleaved)
         """
+        for y in range(self.height):
+            for x in range(self.width):
+                r_sum = g_sum = b_sum = a_sum = 0.0
 
-        pass  # Remove this line when implementing
+                for i in range(self.sample_rate):
+                    for j in range(self.sample_rate):
+                        sx = x * self.sample_rate + i
+                        sy = y * self.sample_rate + j
+                        c = self.sample_buffer[sy, sx]
+                        r_sum += c[0]
+                        g_sum += c[1]
+                        b_sum += c[2]
+                        a_sum += c[3]
+
+                samples_per_pixel = self.sample_rate * self.sample_rate
+                r = r_sum / samples_per_pixel
+                g = g_sum / samples_per_pixel
+                b = b_sum / samples_per_pixel
+                a = a_sum / samples_per_pixel
+
+                idx = (y * self.width + x) * 4
+                self.pixel_buffer[idx + 0] = int(r * 255)
+                self.pixel_buffer[idx + 1] = int(g * 255)
+                self.pixel_buffer[idx + 2] = int(b * 255)
+                self.pixel_buffer[idx + 3] = int(a * 255)
     
     def rasterize_point(self, point: Vector2D, color: Color, size: float = 1.0):
         """Rasterize a point."""
