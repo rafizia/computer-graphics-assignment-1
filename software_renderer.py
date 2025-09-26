@@ -161,7 +161,18 @@ class SoftwareRenderer:
         4. Store blended result back to buffer
         """
     
-        pass  # Remove this line when implementing
+        # Periksa bounds
+        if (x < 0 or x >= self.sample_width or 
+            y < 0 or y >= self.sample_height or 
+            self.sample_buffer is None):
+            return
+        
+        existing = self.sample_buffer[y, x]
+        existing_color = Color(existing[0], existing[1], existing[2], existing[3])
+        
+        # Alpha blend, terus simpan ke buffer
+        blended_color = color.alpha_blend(existing_color)
+        self.sample_buffer[y, x] = [blended_color.r, blended_color.g, blended_color.b, blended_color.a]
     
     def fill_pixel(self, x: int, y: int, color: Color):
         """Fill a pixel with supersampling."""
@@ -181,7 +192,14 @@ class SoftwareRenderer:
         3. Call fill_sample() for each sample coordinate
         """
 
-        pass  # Remove this line when implementing
+        for sy in range(self.sample_rate):
+            for sx in range(self.sample_rate):
+                # Ngitung koordinat sample
+                sample_x = x * self.sample_rate + sx
+                sample_y = y * self.sample_rate + sy
+                
+                # Isi sample-nya
+                self.fill_sample(sample_x, sample_y, color)
     
     def resolve(self):
         """Resolve sample buffer to pixel buffer using box filter."""
@@ -209,7 +227,50 @@ class SoftwareRenderer:
         - pixel_buffer: [height * width * 4] uint8 array (RGBA interleaved)
         """
 
-        pass  # Remove this line when implementing
+        if self.sample_buffer is None or self.pixel_buffer is None:
+            return
+        
+        # Loop setiap pixel
+        for y in range(self.height):
+            for x in range(self.width):
+                total_r = 0.0
+                total_g = 0.0
+                total_b = 0.0
+                total_a = 0.0
+                
+                # Akumulasi semua sample
+                for sy in range(self.sample_rate):
+                    for sx in range(self.sample_rate):
+                        sample_x = x * self.sample_rate + sx
+                        sample_y = y * self.sample_rate + sy
+                        
+                        if (sample_x < self.sample_width and 
+                            sample_y < self.sample_height):
+                            sample = self.sample_buffer[sample_y, sample_x]
+                            total_r += sample[0]
+                            total_g += sample[1]
+                            total_b += sample[2]
+                            total_a += sample[3]
+                
+                # Hitung averages
+                num_samples = self.sample_rate * self.sample_rate
+                avg_r = total_r / num_samples
+                avg_g = total_g / num_samples
+                avg_b = total_b / num_samples
+                avg_a = total_a / num_samples
+                
+                # Convert ke uint8 dan simpan ke pixel buffer
+                final_r = max(0, min(255, int(avg_r * 255)))
+                final_g = max(0, min(255, int(avg_g * 255)))
+                final_b = max(0, min(255, int(avg_b * 255)))
+                final_a = max(0, min(255, int(avg_a * 255)))
+                
+                pixel_index = (y * self.width + x) * 4
+                if pixel_index + 3 < len(self.pixel_buffer):
+                    self.pixel_buffer[pixel_index] = final_r
+                    self.pixel_buffer[pixel_index + 1] = final_g
+                    self.pixel_buffer[pixel_index + 2] = final_b
+                    self.pixel_buffer[pixel_index + 3] = final_a
     
     def rasterize_point(self, point: Vector2D, color: Color, size: float = 1.0):
         """Rasterize a point."""
