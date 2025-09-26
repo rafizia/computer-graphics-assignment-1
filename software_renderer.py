@@ -316,7 +316,86 @@ class SoftwareRenderer:
         an error term to efficiently determine which pixels to draw.
         """
 
-        pass  # Remove this line when implementing
+    def rasterize_line(self, start: Vector2D, end: Vector2D, color: Color, width: float = 1.0):
+        """Rasterize a line using Bresenham's algorithm."""
+        """
+        TASK 0: Line Rasterization
+        
+        TODO: Implement Bresenham's line algorithm for line drawing.
+        
+        Requirements:
+        - Handle arbitrary slopes and non-integer coordinates
+        - Support line width (thickness)
+        - Work in sample space coordinates
+        - Use fill_sample() to write pixels
+        
+        Steps to implement:
+        1. Transform start and end points using self.current_transform
+        2. Convert transformed points to screen space (int coordinates)
+        3. Convert screen coordinates to sample space (multiply by sample_rate)
+        4. Implement Bresenham's algorithm:
+           - Calculate dx, dy, and step directions (sx, sy)
+           - Use error accumulation to decide when to step in x vs y
+           - Handle line width by drawing multiple pixels around each point
+        5. Use fill_sample(x, y, color) to draw each pixel
+        
+        Hint: The classic Bresenham algorithm uses integer arithmetic and
+        an error term to efficiently determine which pixels to draw.
+        """
+        
+        # Transform dan convert ke sample space
+        p0 = self.current_transform * start
+        p1 = self.current_transform * end
+        
+        x0 = int(p0.x)
+        y0 = int(p0.y)
+        x1 = int(p1.x)
+        y1 = int(p1.y)
+        
+        x0_s = x0 * self.sample_rate
+        y0_s = y0 * self.sample_rate
+        x1_s = x1 * self.sample_rate
+        y1_s = y1 * self.sample_rate
+        
+        # Setup variabel Bresenham
+        dx = abs(x1_s - x0_s)
+        dy = abs(y1_s - y0_s)
+        sx = 1 if x0_s < x1_s else -1
+        sy = 1 if y0_s < y1_s else -1
+        
+        x = x0_s
+        y = y0_s
+        
+        # Algoritma Bresenham
+        if dx >= dy:  # Shallow line
+            err = 2 * dy - dx
+            for i in range(dx + 1):
+                self._draw_thick_point(x, y, color, width)
+                
+                if err >= 0:
+                    y += sy
+                    err -= 2 * dx
+                x += sx
+                err += 2 * dy
+        else:  # Steep line
+            err = 2 * dx - dy
+            for i in range(dy + 1):
+                self._draw_thick_point(x, y, color, width)
+                
+                if err >= 0:
+                    x += sx
+                    err -= 2 * dy
+                y += sy
+                err += 2 * dx
+    
+    def _draw_thick_point(self, x: int, y: int, color: Color, width: float):
+        """Helper buat draw thick point."""
+        radius = int((width * self.sample_rate) / 2.0)
+        
+        # Draw square pixels di sekeliling point
+        for dy in range(-radius, radius + 1):
+            for dx in range(-radius, radius + 1):
+                self.fill_sample(x + dx, y + dy, color)
     
     def rasterize_triangle(self, vertices: List[Vector2D], color: Color):
         """Rasterize a triangle using edge functions."""
