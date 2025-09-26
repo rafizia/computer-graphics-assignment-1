@@ -221,7 +221,19 @@ class Color:
         5. Return new Color with blended values
         """
 
-        pass  # Remove this line when implementing
+        # Mengambil alpha dari foreground dan menghitung inverse
+        alpha = self.a
+        inv_alpha = 1.0 - alpha
+        
+        # Blend setiap channel RGB (buat result RGB)
+        result_r = alpha * self.r + inv_alpha * background.r
+        result_g = alpha * self.g + inv_alpha * background.g
+        result_b = alpha * self.b + inv_alpha * background.b
+        
+        # Blend alpha channel (buat result alpha)
+        result_a = alpha + inv_alpha * background.a
+        
+        return Color(result_r, result_g, result_b, result_a)
     
     def __mul__(self, factor: float) -> 'Color':
         """Multiply color by factor."""
