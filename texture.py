@@ -54,8 +54,28 @@ class Sampler2D:
         
         Note: UV (0,0) = top-left pixel, UV (1,1) = bottom-right pixel
         """
+        # Clamp UV
+        u = clamp(u, 0.0, 1.0)
+        v = clamp(v, 0.0, 1.0)
 
-        pass  # Remove this line when implementing
+        # Clamp mipmap level
+        level = int(clamp(level, 0, len(self.mipmaps) - 1))
+        tex = self.mipmaps[level]
+        h, w = tex.shape[0], tex.shape[1]
+
+        # Convert UV to pixel coordinates
+        x = int(round(u * (w - 1)))
+        y = int(round(v * (h - 1)))
+
+        # Clamp pixel coords
+        x = clamp(x, 0, w - 1)
+        y = clamp(y, 0, h - 1)
+
+        # Sample pixel (RGBA in [0,255])
+        r, g, b, a = tex[y, x]
+
+        # Convert to Color (float 0-1)
+        return Color(r / 255.0, g / 255.0, b / 255.0, a / 255.0)
     
     def sample_bilinear(self, u: float, v: float, level: int = 0) -> Color:
         """Sample texture using bilinear filtering."""
@@ -82,9 +102,46 @@ class Sampler2D:
         7. Return interpolated color
         
         Bilinear interpolation smooths texture sampling by blending nearby pixels.
-        """
-        
-        pass  # Remove this line when implementing
+        """ 
+        # Clamp UV
+        u = clamp(u, 0.0, 1.0)
+        v = clamp(v, 0.0, 1.0)
+
+        # Clamp mip level
+        level = int(clamp(level, 0, len(self.mipmaps) - 1))
+        tex = self.mipmaps[level]
+        h, w = tex.shape[0], tex.shape[1]
+
+        # Pixel coordinates (centered)
+        x = u * (w - 1)
+        y = v * (h - 1)
+
+        x0 = int(np.floor(x))
+        y0 = int(np.floor(y))
+        x1 = min(x0 + 1, w - 1)
+        y1 = min(y0 + 1, h - 1)
+
+        fx = x - x0
+        fy = y - y0
+
+        # Sample four pixels
+        c00 = tex[y0, x0]  # top-left
+        c10 = tex[y0, x1]  # top-right
+        c01 = tex[y1, x0]  # bottom-left
+        c11 = tex[y1, x1]  # bottom-right
+
+        # Convert to float
+        c00 = [c / 255.0 for c in c00]
+        c10 = [c / 255.0 for c in c10]
+        c01 = [c / 255.0 for c in c01]
+        c11 = [c / 255.0 for c in c11]
+
+        # Interpolate
+        top = [lerp(c00[i], c10[i], fx) for i in range(4)]
+        bottom = [lerp(c01[i], c11[i], fx) for i in range(4)]
+        final = [lerp(top[i], bottom[i], fy) for i in range(4)]
+
+        return Color(*final)
     
     def sample_trilinear(self, u: float, v: float, mip_level: float) -> Color:
         """Sample texture using trilinear filtering."""
@@ -108,8 +165,26 @@ class Sampler2D:
         
         Trilinear filtering reduces aliasing when textures appear at different scales.
         """
+        num_levels = len(self.mipmaps)
+        mip_level = clamp(mip_level, 0.0, num_levels - 1.0)
 
-        pass  # Remove this line when implementing
+        l0 = int(np.floor(mip_level))
+        l1 = min(l0 + 1, num_levels - 1)
+        t = mip_level - l0  # fractional part
+
+        c0 = self.sample_bilinear(u, v, l0)
+        if t < 1e-6 or l0 == l1:
+            return c0
+
+        c1 = self.sample_bilinear(u, v, l1)
+
+        # Interpolate between levels
+        r = lerp(c0.r, c1.r, t)
+        g = lerp(c0.g, c1.g, t)
+        b = lerp(c0.b, c1.b, t)
+        a = lerp(c0.a, c1.a, t)
+
+        return Color(r, g, b, a)
     
 
 
@@ -141,8 +216,37 @@ class Sampler2DImp(Sampler2D):
         
         Box filtering reduces aliasing by pre-averaging texture details at multiple scales.
         """
-        
-        pass  # Remove this line when implementing
+        if self.texture is None:
+            return
+
+        self.mipmaps = [self.texture]
+        prev = self.texture
+
+        while prev.shape[0] > 1 or prev.shape[1] > 1:
+            h_prev, w_prev = prev.shape[0], prev.shape[1]
+            h_new = max(1, h_prev // 2)
+            w_new = max(1, w_prev // 2)
+
+            new_level = np.zeros((h_new, w_new, 4), dtype=np.uint8)
+
+            for y in range(h_new):
+                for x in range(w_new):
+                    ys = [min(2*y, h_prev-1), min(2*y+1, h_prev-1)]
+                    xs = [min(2*x, w_prev-1), min(2*x+1, w_prev-1)]
+
+                    block = [
+                        prev[ys[0], xs[0]],
+                        prev[ys[0], xs[1]],
+                        prev[ys[1], xs[0]],
+                        prev[ys[1], xs[1]],
+                    ]
+                    block = np.array(block, dtype=np.float32)
+                    avg = np.mean(block, axis=0)
+
+                    new_level[y, x] = avg.astype(np.uint8)
+
+            self.mipmaps.append(new_level)
+            prev = new_level
 
 
 def uint8_to_float(value: int) -> float:

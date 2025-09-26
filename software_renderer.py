@@ -527,8 +527,59 @@ class SoftwareRenderer:
            - Sample texture using trilinear filtering (with appropriate mip level)
            - Fill sample with sampled color
         """
+        # Define corners in local image space
+        corners = [
+            Vector2D(img.x, img.y),
+            Vector2D(img.x + img.width, img.y),
+            Vector2D(img.x, img.y + img.height),
+            Vector2D(img.x + img.width, img.y + img.height),
+        ]
 
-        pass  # Remove this line when implementing
+        # Transform corners to screen space
+        transformed = [self.current_transform * c for c in corners]
+
+        # Convert to sample space and bounding box
+        xs = [int(round(c.x * self.sample_rate)) for c in transformed]
+        ys = [int(round(c.y * self.sample_rate)) for c in transformed]
+
+        min_x = max(0, min(xs))
+        max_x = min(self.width * self.sample_rate - 1, max(xs))
+        min_y = max(0, min(ys))
+        max_y = min(self.height * self.sample_rate - 1, max(ys))
+
+        # Build inverse transform: screen → local image space
+        local_corners = [
+            Vector2D(img.x, img.y),
+            Vector2D(img.x + img.width, img.y),
+            Vector2D(img.x, img.y + img.height),
+        ]
+        screen_corners = transformed[:3]
+        M_screen = Matrix3x3([
+            [screen_corners[1].x - screen_corners[0].x, screen_corners[2].x - screen_corners[0].x, screen_corners[0].x],
+            [screen_corners[1].y - screen_corners[0].y, screen_corners[2].y - screen_corners[0].y, screen_corners[0].y],
+            [0, 0, 1]
+        ])
+        M_local = Matrix3x3([
+            [img.width, 0, img.x],
+            [0, img.height, img.y],
+            [0, 0, 1]
+        ])
+        M = M_screen * M_local.inverse()  # forward transform
+        M_inv = M.inverse()  # inverse transform (screen → local)
+
+        # Loop over bounding box
+        for y in range(min_y, max_y + 1):
+            for x in range(min_x, max_x + 1):
+                p_screen = Vector2D(x + 0.5, y + 0.5)
+                p_local = M_inv * p_screen
+
+                # Compute UV
+                u = (p_local.x - img.x) / img.width
+                v = (p_local.y - img.y) / img.height
+
+                if 0 <= u <= 1 and 0 <= v <= 1:
+                    color = img.texture.sample_bilinear(u, v)
+                    self.fill_sample(x, y, color)
     
     def draw_element(self, element: SVGElement):
         """Draw an SVG element with its transform."""
