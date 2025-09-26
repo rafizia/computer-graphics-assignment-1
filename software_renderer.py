@@ -293,8 +293,43 @@ class SoftwareRenderer:
         Hint: The classic Bresenham algorithm uses integer arithmetic and
         an error term to efficiently determine which pixels to draw.
         """
+        # Transform start and end points
+        p0 = self.current_transform * start
+        p1 = self.current_transform * end
 
-        pass  # Remove this line when implementing
+        # Convert to screen space
+        x0, y0 = int(round(p0.x)), int(round(p0.y))
+        x1, y1 = int(round(p1.x)), int(round(p1.y))
+
+        # Convert to sample space
+        x0 *= self.sample_rate
+        y0 *= self.sample_rate
+        x1 *= self.sample_rate
+        y1 *= self.sample_rate
+
+        # Bresenham algorithm
+        dx = abs(x1 - x0)
+        dy = abs(y1 - y0)
+        sx = 1 if x0 < x1 else -1
+        sy = 1 if y0 < y1 else -1
+        err = dx - dy
+
+        while True:
+            half_w = int(max(1, round(width * self.sample_rate / 2)))
+            for i in range(-half_w, half_w + 1):
+                for j in range(-half_w, half_w + 1):
+                    self.fill_sample(x0 + i, y0 + j, color)
+
+            if x0 == x1 and y0 == y1:
+                break
+
+            e2 = 2 * err
+            if e2 > -dy:
+                err -= dy
+                x0 += sx
+            if e2 < dx:
+                err += dx
+                y0 += sy
     
     def rasterize_triangle(self, vertices: List[Vector2D], color: Color):
         """Rasterize a triangle using edge functions."""
