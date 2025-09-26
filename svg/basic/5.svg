@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="400" height="300" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+  <!-- Complex polygons test -->
+  <polygon points="200,50 250,100 300,80 280,130 320,180 200,150 80,180 120,130 100,80 150,100" 
+           fill="gold" stroke="red" stroke-width="2"/>
+  <polygon points="50,200 100,220 120,250 80,280 30,260" 
+           fill="lightblue" stroke="darkblue" stroke-width="1"/>
+  <polygon points="300,200 350,220 380,260 340,290 290,280 270,240" 
+           fill="lightgreen" stroke="darkgreen" stroke-width="1"/>
+</svg>

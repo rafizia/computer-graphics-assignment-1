@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="400" height="300" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+  <!-- Varying opacity levels -->
+  <rect x="50" y="50" width="60" height="200" fill="red" fill-opacity="1.0"/>
+  <rect x="80" y="50" width="60" height="200" fill="green" fill-opacity="0.8"/>
+  <rect x="110" y="50" width="60" height="200" fill="blue" fill-opacity="0.6"/>
+  <rect x="140" y="50" width="60" height="200" fill="yellow" fill-opacity="0.4"/>
+  <rect x="170" y="50" width="60" height="200" fill="purple" fill-opacity="0.2"/>
+  <rect x="200" y="50" width="60" height="200" fill="orange" fill-opacity="0.1"/>
+</svg>

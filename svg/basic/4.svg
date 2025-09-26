@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="400" height="200" viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Brave Pink -->
+  <rect x="30" y="50" width="100" height="100" fill="hotpink" stroke="black" stroke-width="2"/>
+
+  <!-- Hero Green -->
+  <rect x="150" y="50" width="100" height="100" fill="green" stroke="black" stroke-width="2"/>
+
+  <!-- Resistance Blue -->
+  <rect x="270" y="50" width="100" height="100" fill="blue" stroke="black" stroke-width="2"/>
+</svg>

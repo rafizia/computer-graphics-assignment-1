@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="300" height="250" viewBox="0 0 300 250" xmlns="http://www.w3.org/2000/svg">
+  <!-- Rectangle (rumah) -->
+  <rect x="80" y="100" width="140" height="100" fill="lightgray" stroke="black" stroke-width="3"/>
+
+  <!-- Triangle (atap) -->
+  <polygon points="70,100 230,100 150,40" fill="tomato" stroke="brown" stroke-width="3"/>
+</svg>

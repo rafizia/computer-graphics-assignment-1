@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="400" height="300" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+  <!-- Line drawing test -->
+  <line x1="50" y1="50" x2="350" y2="50" stroke="red" stroke-width="2" fill="none"/>
+  <line x1="50" y1="100" x2="350" y2="150" stroke="green" stroke-width="2" fill="none"/>
+  <line x1="50" y1="200" x2="150" y2="100" stroke="blue" stroke-width="2" fill="none"/>
+  <line x1="200" y1="100" x2="350" y2="250" stroke="purple" stroke-width="2" fill="none"/>
+  <!-- Vertical and horizontal lines -->
+  <line x1="100" y1="50" x2="100" y2="250" stroke="orange" stroke-width="2" fill="none"/>
+  <line x1="50" y1="150" x2="350" y2="150" stroke="cyan" stroke-width="2" fill="none"/>
+</svg>
