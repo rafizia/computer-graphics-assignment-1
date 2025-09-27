@@ -53,7 +53,17 @@ class Viewport:
         - Return proper transformation matrix
         """
 
-        pass  # Remove this line when implementing
+        # Transform canvas region [x-span, x+span] x [y-span, y+span] ke [-1,1] x [-1,1]
+        scale = 1.0 / self.span
+        tx = -self.x * scale
+        ty = -self.y * scale
+        
+        # Me-return matrix dengan scale dan translate yang sudah dihitung
+        return Matrix3x3([
+            [scale, 0, tx],
+            [0, scale, ty],
+            [0, 0, 1]
+        ])
 
 
 class ViewportImp(Viewport):
@@ -618,7 +628,84 @@ class SoftwareRenderer:
         - Child transforms are relative to parent
         """
 
-        pass  # Remove this line when implementing the rest
+        # Simpan dan apply transform element
+        self.transform_stack.append(self.current_transform)
+
+        if hasattr(element, 'transform') and element.transform is not None:
+            self.current_transform = self.current_transform * element.transform
+        
+        # Draw berdasarkan tipe element
+        if isinstance(element, SVGPoint):
+            color = element.get_color()
+            size = getattr(element, 'size', 1.0)
+            self.rasterize_point(element.position, color, size)
+            
+        elif isinstance(element, SVGLine):
+            stroke_color = element.get_stroke_color()
+            if stroke_color.a > 0:
+                stroke_width = element.get_stroke_width()
+                self.rasterize_line(element.start, element.end, stroke_color, stroke_width)
+            
+        elif isinstance(element, SVGTriangle):
+            # Fill dulu, baru stroke
+            fill_color = element.get_color()
+            if fill_color.a > 0:
+                self.rasterize_triangle(element.vertices, fill_color)
+            
+            stroke_color = element.get_stroke_color()
+            if stroke_color.a > 0:
+                stroke_width = element.get_stroke_width()
+                vertices = element.vertices
+                for i in range(len(vertices)):
+                    start = vertices[i]
+                    end = vertices[(i + 1) % len(vertices)]
+                    self.rasterize_line(start, end, stroke_color, stroke_width)
+            
+        elif isinstance(element, SVGPolygon):
+            # Fill dulu, baru stroke
+            fill_color = element.get_color()
+            if fill_color.a > 0:
+                self.rasterize_polygon(element.vertices, fill_color)
+            
+            stroke_color = element.get_stroke_color()
+            if stroke_color.a > 0:
+                stroke_width = element.get_stroke_width()
+                vertices = element.vertices
+                for i in range(len(vertices)):
+                    start = vertices[i]
+                    end = vertices[(i + 1) % len(vertices)]
+                    self.rasterize_line(start, end, stroke_color, stroke_width)
+            
+        elif isinstance(element, SVGRect):
+            # Fill dulu, baru stroke
+            fill_color = element.get_color()
+            if fill_color.a > 0:
+                self.rasterize_rect(element.x, element.y, element.width, element.height, fill_color)
+            
+            stroke_color = element.get_stroke_color()
+            if stroke_color.a > 0:
+                stroke_width = element.get_stroke_width()
+                # Buat corners dan draw outline dengan 4 lines
+                corners = [
+                    Vector2D(element.x, element.y),
+                    Vector2D(element.x + element.width, element.y),
+                    Vector2D(element.x + element.width, element.y + element.height),
+                    Vector2D(element.x, element.y + element.height)
+                ]
+                for i in range(4):
+                    start = corners[i]
+                    end = corners[(i + 1) % 4]
+                    self.rasterize_line(start, end, stroke_color, stroke_width)
+            
+        elif isinstance(element, SVGImage):
+            self.rasterize_image(element)
+            
+        elif isinstance(element, SVGGroup):
+            for child in element.children:
+                self.draw_element(child)
+        
+        # Restore transform sebelumnya
+        self.current_transform = self.transform_stack.pop()
     
     def draw_svg(self, svg: SVG):
         """Draw an entire SVG document."""
