@@ -55,7 +55,38 @@ class Sampler2D:
         Note: UV (0,0) = top-left pixel, UV (1,1) = bottom-right pixel
         """
 
-        pass  # Remove this line when implementing
+        # Clamp UV dan pilih mipmap level
+        u = clamp(u, 0.0, 1.0)
+        v = clamp(v, 0.0, 1.0)
+        level = clamp(level, 0, len(self.mipmaps) - 1)
+        mip_texture = self.mipmaps[level]
+        
+        mip_height, mip_width = mip_texture.shape[:2]
+        
+        # Mengonversi UV ke pixel coordinates dan round ke nearest
+        x = u * (mip_width - 1)
+        y = v * (mip_height - 1)
+        px = int(round(x))
+        py = int(round(y))
+        
+        px = clamp(px, 0, mip_width - 1)
+        py = clamp(py, 0, mip_height - 1)
+        
+        # Sample pixel dan mengonversi ke Color
+        pixel = mip_texture[py, px]
+
+        if pixel.dtype == np.uint8:
+            if len(pixel) == 4:  # RGBA
+                return Color(pixel[0]/255.0, pixel[1]/255.0, pixel[2]/255.0, pixel[3]/255.0)
+            elif len(pixel) == 3:  # RGB
+                return Color(pixel[0]/255.0, pixel[1]/255.0, pixel[2]/255.0, 1.0)
+        else: # Kalo udah float
+            if len(pixel) == 4:  # RGBA
+                return Color(pixel[0], pixel[1], pixel[2], pixel[3])
+            elif len(pixel) == 3:  # RGB
+                return Color(pixel[0], pixel[1], pixel[2], 1.0)
+        
+        return Color(0.0, 0.0, 0.0, 1.0)
     
     def sample_bilinear(self, u: float, v: float, level: int = 0) -> Color:
         """Sample texture using bilinear filtering."""
@@ -84,7 +115,53 @@ class Sampler2D:
         Bilinear interpolation smooths texture sampling by blending nearby pixels.
         """
         
-        pass  # Remove this line when implementing
+        # Clamp UV dan pilih mipmap level
+        u = clamp(u, 0.0, 1.0)
+        v = clamp(v, 0.0, 1.0)
+        level = clamp(level, 0, len(self.mipmaps) - 1)
+        mip_texture = self.mipmaps[level]
+        
+        mip_height, mip_width = mip_texture.shape[:2]
+        
+         # Mengonversi UV ke pixel coordinates dan ambil integer + fractional parts
+        x = u * (mip_width - 1)
+        y = v * (mip_height - 1)
+        x_int = int(x)
+        y_int = int(y)
+        fx = x - x_int
+        fy = y - y_int
+        
+        # Clamp coordinates untuk 4 surrounding pixels
+        x0 = clamp(x_int, 0, mip_width - 1)
+        x1 = clamp(x_int + 1, 0, mip_width - 1)
+        y0 = clamp(y_int, 0, mip_height - 1)
+        y1 = clamp(y_int + 1, 0, mip_height - 1)
+        
+        def get_pixel_color(py, px):
+            pixel = mip_texture[py, px]
+            if pixel.dtype == np.uint8:
+                if len(pixel) >= 3:
+                    r, g, b = pixel[0]/255.0, pixel[1]/255.0, pixel[2]/255.0
+                    a = pixel[3]/255.0 if len(pixel) == 4 else 1.0
+                    return [r, g, b, a]
+            else:
+                if len(pixel) >= 3:
+                    r, g, b = pixel[0], pixel[1], pixel[2]
+                    a = pixel[3] if len(pixel) == 4 else 1.0
+                    return [r, g, b, a]
+            return [0.0, 0.0, 0.0, 1.0]
+        
+        p00 = get_pixel_color(y0, x0)
+        p10 = get_pixel_color(y0, x1)
+        p01 = get_pixel_color(y1, x0)
+        p11 = get_pixel_color(y1, x1)
+        
+        # Bilinear interpolation: horizontal dulu, terus vertical
+        top = [(1-fx) * p00[i] + fx * p10[i] for i in range(4)]
+        bottom = [(1-fx) * p01[i] + fx * p11[i] for i in range(4)]
+        final = [(1-fy) * top[i] + fy * bottom[i] for i in range(4)]
+        
+        return Color(final[0], final[1], final[2], final[3])
     
     def sample_trilinear(self, u: float, v: float, mip_level: float) -> Color:
         """Sample texture using trilinear filtering."""
@@ -109,9 +186,28 @@ class Sampler2D:
         Trilinear filtering reduces aliasing when textures appear at different scales.
         """
 
-        pass  # Remove this line when implementing
+        # Clamp mip level dan ambil integer + fractional parts
+        max_level = len(self.mipmaps) - 1
+        mip_level = clamp(mip_level, 0.0, float(max_level))
+        level0 = int(mip_level)
+        level1 = min(level0 + 1, max_level)
+        t = mip_level - level0
+        
+        # Kalo fractional kecil atau di level tertinggi, pakai bilinear aja
+        if t < 1e-6 or level0 == max_level:
+            return self.sample_bilinear(u, v, level0)
+        
+        # Sample dari 2 mip levels dan interpolasi
+        color0 = self.sample_bilinear(u, v, level0)
+        color1 = self.sample_bilinear(u, v, level1)
+        
+        result_r = lerp(color0.r, color1.r, t)
+        result_g = lerp(color0.g, color1.g, t)
+        result_b = lerp(color0.b, color1.b, t)
+        result_a = lerp(color0.a, color1.a, t)
+        
+        return Color(result_r, result_g, result_b, result_a)
     
-
 
 class Sampler2DImp(Sampler2D):
     """Implementation class for Sampler2D with mipmap generation."""
@@ -142,7 +238,52 @@ class Sampler2DImp(Sampler2D):
         Box filtering reduces aliasing by pre-averaging texture details at multiple scales.
         """
         
-        pass  # Remove this line when implementing
+        if self.texture is None:
+            return
+        
+        # Meng-generate level-level yang progressively smaller
+        height, width = self.texture.shape[:2]
+        if width <= 0 or height <= 0:
+            return
+        
+        self.mipmaps = [self.texture]
+        current_level = self.texture
+        
+        # Meng-generate level" yang progressively smaller
+        while True:
+            current_height, current_width = current_level.shape[:2]
+            new_width = max(1, current_width // 2)
+            new_height = max(1, current_height // 2)
+            
+            if new_width == current_width and new_height == current_height:
+                break
+            
+            # Bikin mipmap array baru
+            if len(current_level.shape) == 3:  # Kalo berwarna
+                channels = current_level.shape[2]
+                new_level = np.zeros((new_height, new_width, channels), dtype=current_level.dtype)
+            else:  # Grayscale
+                new_level = np.zeros((new_height, new_width), dtype=current_level.dtype)
+            
+            # Box filter: rata-rata 2x2 block untuk setiap pixel baru
+            for y in range(new_height):
+                for x in range(new_width):
+                    src_x = x * 2
+                    src_y = y * 2
+                    
+                    samples = []
+                    for dy in range(2):
+                        for dx in range(2):
+                            sample_x = min(src_x + dx, current_width - 1)
+                            sample_y = min(src_y + dy, current_height - 1)
+                            samples.append(current_level[sample_y, sample_x])
+                    
+                    if len(samples) > 0:
+                        avg_sample = np.mean(samples, axis=0)
+                        new_level[y, x] = avg_sample.astype(current_level.dtype)
+            
+            self.mipmaps.append(new_level)
+            current_level = new_level
 
 
 def uint8_to_float(value: int) -> float:

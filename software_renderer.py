@@ -601,7 +601,52 @@ class SoftwareRenderer:
            - Fill sample with sampled color
         """
 
-        pass  # Remove this line when implementing
+        if not hasattr(img, 'texture') or img.texture is None:
+            return
+        
+        # Define corners dan transform ke sample space
+        corners = [
+            Vector2D(img.x, img.y),
+            Vector2D(img.x + img.width, img.y),
+            Vector2D(img.x + img.width, img.y + img.height),
+            Vector2D(img.x, img.y + img.height)
+        ]
+        
+        screen_corners = []
+        for corner in corners:
+            transformed = self.current_transform * corner
+            screen_corners.append(Vector2D(int(transformed.x), int(transformed.y)))
+        
+        sample_corners = []
+        for corner in screen_corners:
+            sample_corners.append(Vector2D(corner.x * self.sample_rate, corner.y * self.sample_rate))
+        
+        # Menghitung bounding box
+        min_x = max(0, int(min(c.x for c in sample_corners)))
+        max_x = min(self.sample_width - 1, int(max(c.x for c in sample_corners)) + 1)
+        min_y = max(0, int(min(c.y for c in sample_corners)))
+        max_y = min(self.sample_height - 1, int(max(c.y for c in sample_corners)) + 1)
+        
+        # Membuat inverse transform
+        try:
+            inverse_transform = self.current_transform.inverse()
+        except ValueError:
+            # Kalo matriks singular, gabisa render
+            return
+        
+        # Sample texture untuk setiap pixel dalam bounding box
+        for y in range(min_y, max_y + 1):
+            for x in range(min_x, max_x + 1):
+                screen_pos = Vector2D(x / self.sample_rate, y / self.sample_rate)
+                world_pos = inverse_transform * screen_pos
+                
+                u = (world_pos.x - img.x) / img.width
+                v = (world_pos.y - img.y) / img.height
+                
+                if 0.0 <= u <= 1.0 and 0.0 <= v <= 1.0:
+                    mip_level = 0.0
+                    sampled_color = img.texture.sample_trilinear(u, v, mip_level)
+                    self.fill_sample(x, y, sampled_color)
     
     def draw_element(self, element: SVGElement):
         """Draw an SVG element with its transform."""
