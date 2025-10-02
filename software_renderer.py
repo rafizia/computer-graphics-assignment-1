@@ -260,11 +260,7 @@ class SoftwareRenderer:
         if dx >= dy:  # Shallow line
             err = 2 * dy - dx
             for i in range(dx + 1):
-                # Use fill_sample(x, y, color) to draw each pixel
-                half_w = int(width // 2)
-                for dx_w in range(-half_w, half_w + 1):
-                    for dy_w in range(-half_w, half_w + 1):
-                        self.fill_sample(x + dx_w, y + dy_w, color)
+                self._draw_thick_point(x, y, color, width)
                 
                 if err >= 0:
                     y += sy
@@ -274,17 +270,22 @@ class SoftwareRenderer:
         else:  # Steep line
             err = 2 * dx - dy
             for i in range(dy + 1):
-                # Use fill_sample(x, y, color) to draw each pixel
-                half_w = int(width // 2)
-                for dx_w in range(-half_w, half_w + 1):
-                    for dy_w in range(-half_w, half_w + 1):
-                        self.fill_sample(x + dx_w, y + dy_w, color)
+                self._draw_thick_point(x, y, color, width)
                 
                 if err >= 0:
                     x += sx
                     err -= 2 * dy
                 y += sy
                 err += 2 * dx
+
+    def _draw_thick_point(self, x: int, y: int, color: Color, width: float):
+        """Helper buat draw thick point."""
+        radius = int((width * self.sample_rate) / 2.0)
+        
+        # Draw square pixels di sekeliling point
+        for dy in range(-radius, radius + 1):
+            for dx in range(-radius, radius + 1):
+                self.fill_sample(x + dx, y + dy, color)
     
     def rasterize_triangle(self, vertices: List[Vector2D], color: Color):
         """Rasterize a triangle using edge functions."""
