@@ -234,65 +234,59 @@ class SoftwareRenderer:
         """Rasterize a line using Bresenham's algorithm."""
         """
         TASK 0: Line Rasterization
-        
-        TODO: Implement Bresenham's line algorithm for line drawing.
-        
-        Requirements:
-        - Handle arbitrary slopes and non-integer coordinates
-        - Support line width (thickness)
-        - Work in sample space coordinates
-        - Use fill_sample() to write pixels
-        
-        Steps to implement:
-        1. Transform start and end points using self.current_transform
-        2. Convert transformed points to screen space (int coordinates)
-        3. Convert screen coordinates to sample space (multiply by sample_rate)
-        4. Implement Bresenham's algorithm:
-           - Calculate dx, dy, and step directions (sx, sy)
-           - Use error accumulation to decide when to step in x vs y
-           - Handle line width by drawing multiple pixels around each point
-        5. Use fill_sample(x, y, color) to draw each pixel
-        
-        Hint: The classic Bresenham algorithm uses integer arithmetic and
-        an error term to efficiently determine which pixels to draw.
         """
-        # Transform start and end points
+        # Transform start and end points using self.current_transform
         p0 = self.current_transform * start
         p1 = self.current_transform * end
 
-        # Convert to screen space
-        x0, y0 = int(round(p0.x)), int(round(p0.y))
-        x1, y1 = int(round(p1.x)), int(round(p1.y))
+        # Convert transformed points to screen space
+        x0, y0 = int(p0.x), int(p0.y)
+        x1, y1 = int(p1.x), int(p1.y)
 
-        # Convert to sample space
-        x0 *= self.sample_rate
-        y0 *= self.sample_rate
-        x1 *= self.sample_rate
-        y1 *= self.sample_rate
+        # Convert screen coordinates to sample space 
+        x0_s = x0 * self.sample_rate
+        y0_s = y0 * self.sample_rate
+        x1_s = x1 * self.sample_rate
+        y1_s = y1 * self.sample_rate
 
-        # Bresenham algorithm
-        dx = abs(x1 - x0)
-        dy = abs(y1 - y0)
-        sx = 1 if x0 < x1 else -1
-        sy = 1 if y0 < y1 else -1
-        err = dx - dy
-
-        while True:
-            half_w = int(max(1, round(width * self.sample_rate / 2)))
-            for i in range(-half_w, half_w + 1):
-                for j in range(-half_w, half_w + 1):
-                    self.fill_sample(x0 + i, y0 + j, color)
-
-            if x0 == x1 and y0 == y1:
-                break
-
-            e2 = 2 * err
-            if e2 > -dy:
-                err -= dy
-                x0 += sx
-            if e2 < dx:
-                err += dx
-                y0 += sy
+        # Bresenham's algorithm
+        # Calculate dx, dy, and step directions (sx, sy)
+        dx = abs(x1_s - x0_s)
+        dy = abs(y1_s - y0_s)
+        sx = 1 if x0_s < x1_s else -1
+        sy = 1 if y0_s < y1_s else -1
+        
+        x = x0_s
+        y = y0_s
+        
+        if dx >= dy:  # Shallow line
+            err = 2 * dy - dx
+            for i in range(dx + 1):
+                # Use fill_sample(x, y, color) to draw each pixel
+                half_w = int(width // 2)
+                for dx_w in range(-half_w, half_w + 1):
+                    for dy_w in range(-half_w, half_w + 1):
+                        self.fill_sample(x + dx_w, y + dy_w, color)
+                
+                if err >= 0:
+                    y += sy
+                    err -= 2 * dx
+                x += sx
+                err += 2 * dy
+        else:  # Steep line
+            err = 2 * dx - dy
+            for i in range(dy + 1):
+                # Use fill_sample(x, y, color) to draw each pixel
+                half_w = int(width // 2)
+                for dx_w in range(-half_w, half_w + 1):
+                    for dy_w in range(-half_w, half_w + 1):
+                        self.fill_sample(x + dx_w, y + dy_w, color)
+                
+                if err >= 0:
+                    x += sx
+                    err -= 2 * dy
+                y += sy
+                err += 2 * dx
     
     def rasterize_triangle(self, vertices: List[Vector2D], color: Color):
         """Rasterize a triangle using edge functions."""
