@@ -201,27 +201,22 @@ class Color:
         """Alpha blend this color over background color."""
         """
         TASK 5: Alpha Compositing
-        
-        TODO: Implement alpha blending for transparency.
-        
-        Requirements:
-        - Implement standard alpha blending formula
-        - Handle both color and alpha channels correctly
-        - Self (foreground) color blends over background color
-        
-        Formula:
-        - result_rgb = alpha * foreground_rgb + (1 - alpha) * background_rgb
-        - result_alpha = alpha + (1 - alpha) * background_alpha
-        
-        Steps:
-        1. Extract alpha from foreground (self.a)
-        2. Calculate inverse alpha (1 - alpha)
-        3. Blend each RGB channel using the formula
-        4. Blend alpha channel
-        5. Return new Color with blended values
         """
-
-        pass  # Remove this line when implementing
+        # Extract alpha from foreground (self.a)
+        alpha = self.a
+        # Calculate inverse alpha (1 - alpha)
+        inv_alpha = 1.0 - alpha
+        
+        # Blend each RGB channel
+        result_r = alpha * self.r + inv_alpha * background.r
+        result_g = alpha * self.g + inv_alpha * background.g
+        result_b = alpha * self.b + inv_alpha * background.b
+        
+        # Blend alpha channel
+        result_a = alpha + inv_alpha * background.a
+        
+        # Return new Color with blended values
+        return Color(result_r, result_g, result_b, result_a)
     
     def __mul__(self, factor: float) -> 'Color':
         """Multiply color by factor."""

@@ -44,17 +44,18 @@ class Viewport:
         """Get transformation matrix from viewport space to normalized space."""
         """
         TASK 3: Viewing Transforms - Get Canvas to Normalized Transform
-        
-        TODO: Create transformation matrix from canvas space to normalized space.
-        
-        Requirements:
-        - Transform canvas region [x-span, x+span] x [y-span, y+span] to [-1,1] x [-1,1]
-        - Use viewport parameters (self.x, self.y, self.span)
-        - Return proper transformation matrix
         """
-
-        pass  # Remove this line when implementing
-
+        # Transform canvas region [x-span, x+span] x [y-span, y+span] ke [-1,1] x [-1,1]
+        scale = 1.0 / self.span
+        tx = -self.x * scale
+        ty = -self.y * scale
+        
+        # Me-return matrix dengan scale dan translate yang sudah dihitung
+        return Matrix3x3([
+            [scale, 0, tx],
+            [0, scale, ty],
+            [0, 0, 1]
+        ])
 
 class ViewportImp(Viewport):
     """Implementation class for viewport with additional functionality."""
@@ -146,70 +147,69 @@ class SoftwareRenderer:
         """Fill a single sample in the sample buffer."""
         """
         TASK 2: Fill Sample (Part of Supersampling)
-        
-        TODO: Fill a single sample in the sample buffer with alpha blending.
-        
-        Requirements:
-        - Bounds check to ensure x,y are within sample buffer
-        - Implement alpha blending with existing color
-        - Store final color in sample buffer
-        
-        Steps:
-        1. Check if coordinates are within bounds (0 <= x < sample_width, etc.)
-        2. Get existing color from buffer at [y, x]
-        3. Blend new color with existing using alpha blending
-        4. Store blended result back to buffer
         """
-    
-        pass  # Remove this line when implementing
+        # Check if coordinates are within bounds
+        if 0 <= x < self.sample_width and 0 <= y < self.sample_height:
+            # Get existing color from buffer at [y, x]
+            existing = self.sample_buffer[y, x]
+            existing_color = Color(existing[0], existing[1], existing[2], existing[3])
+            
+            # Blend new color with existing using alpha blending
+            blended_color = color.alpha_blend(existing_color)
+
+            # Store blended result back to buffer
+            self.sample_buffer[y, x] = [blended_color.r, blended_color.g, blended_color.b, blended_color.a]
     
     def fill_pixel(self, x: int, y: int, color: Color):
         """Fill a pixel with supersampling."""
         """
         TASK 2: Fill Pixel (Part of Supersampling)
-        
-        TODO: Fill all samples belonging to a pixel with the given color.
-        
-        Requirements:
-        - Fill all NxN samples for this pixel (where N = sample_rate)
-        - Calculate correct sample coordinates
-        - Use fill_sample() for each sample
-        
-        Steps:
-        1. For each sample within the pixel (sample_rate x sample_rate)
-        2. Calculate sample coordinates: x*sample_rate + sx, y*sample_rate + sy
-        3. Call fill_sample() for each sample coordinate
         """
-
-        pass  # Remove this line when implementing
+        # For each sample within the pixel (sample_rate x sample_rate)
+        for sy in range(self.sample_rate):
+            for sx in range(self.sample_rate):
+                # Calculate sample coordinates: x*sample_rate + sx, y*sample_rate + sy
+                sample_x = x * self.sample_rate + sx
+                sample_y = y * self.sample_rate + sy
+                
+                # Call fill_sample() for each sample coordinate
+                self.fill_sample(sample_x, sample_y, color)
     
     def resolve(self):
         """Resolve sample buffer to pixel buffer using box filter."""
         """
         TASK 2: Supersampling & Resolve
-        
-        TODO: Implement box filter averaging for anti-aliasing.
-        
-        Requirements:
-        - Average NxN samples per pixel (where N = sample_rate)
-        - Convert from high-resolution sample_buffer to final pixel_buffer
-        - Handle RGBA channels properly
-        - Bounds checking for sample buffer access
-        
-        Steps to implement:
-        1. For each pixel in the output image (width x height):
-        2. Accumulate all samples that belong to this pixel
-           - For sample_rate=2: each pixel has 2x2=4 samples
-           - Sample coordinates: x*sample_rate + sx, y*sample_rate + sy
-        3. Average the accumulated color values
-        4. Write averaged color to pixel_buffer at correct index
-        
-        Buffer layout:
-        - sample_buffer: [sample_height, sample_width, 4] float array
-        - pixel_buffer: [height * width * 4] uint8 array (RGBA interleaved)
         """
+        # For each pixel in the output image (width x height)
+        for y in range(self.height):
+            for x in range(self.width):
+                r_sum = g_sum = b_sum = a_sum = 0.0
 
-        pass  # Remove this line when implementing
+                # Accumulate all samples for this pixel
+                for i in range(self.sample_rate):
+                    for j in range(self.sample_rate):
+                        sx = x * self.sample_rate + i
+                        sy = y * self.sample_rate + j
+
+                        sample = self.sample_buffer[sy, sx]
+                        r_sum += sample[0]
+                        g_sum += sample[1]
+                        b_sum += sample[2]
+                        a_sum += sample[3]
+
+                # Average the accumulated color values
+                num_samples = self.sample_rate * self.sample_rate
+                avg_r = r_sum / num_samples
+                avg_g = g_sum / num_samples
+                avg_b = b_sum / num_samples
+                avg_a = a_sum / num_samples
+
+                # Write averaged color to pixel_buffer
+                idx = (y * self.width + x) * 4
+                self.pixel_buffer[idx + 0] = int(avg_r * 255)
+                self.pixel_buffer[idx + 1] = int(avg_g * 255)
+                self.pixel_buffer[idx + 2] = int(avg_b * 255)
+                self.pixel_buffer[idx + 3] = int(avg_a * 255)
     
     def rasterize_point(self, point: Vector2D, color: Color, size: float = 1.0):
         """Rasterize a point."""
@@ -232,30 +232,60 @@ class SoftwareRenderer:
         """Rasterize a line using Bresenham's algorithm."""
         """
         TASK 0: Line Rasterization
-        
-        TODO: Implement Bresenham's line algorithm for line drawing.
-        
-        Requirements:
-        - Handle arbitrary slopes and non-integer coordinates
-        - Support line width (thickness)
-        - Work in sample space coordinates
-        - Use fill_sample() to write pixels
-        
-        Steps to implement:
-        1. Transform start and end points using self.current_transform
-        2. Convert transformed points to screen space (int coordinates)
-        3. Convert screen coordinates to sample space (multiply by sample_rate)
-        4. Implement Bresenham's algorithm:
-           - Calculate dx, dy, and step directions (sx, sy)
-           - Use error accumulation to decide when to step in x vs y
-           - Handle line width by drawing multiple pixels around each point
-        5. Use fill_sample(x, y, color) to draw each pixel
-        
-        Hint: The classic Bresenham algorithm uses integer arithmetic and
-        an error term to efficiently determine which pixels to draw.
         """
+        # Transform start and end points using self.current_transform
+        p0 = self.current_transform * start
+        p1 = self.current_transform * end
 
-        pass  # Remove this line when implementing
+        # Convert transformed points to screen space
+        x0, y0 = int(p0.x), int(p0.y)
+        x1, y1 = int(p1.x), int(p1.y)
+
+        # Convert screen coordinates to sample space 
+        x0_s = x0 * self.sample_rate
+        y0_s = y0 * self.sample_rate
+        x1_s = x1 * self.sample_rate
+        y1_s = y1 * self.sample_rate
+
+        # Bresenham's algorithm
+        # Calculate dx, dy, and step directions (sx, sy)
+        dx = abs(x1_s - x0_s)
+        dy = abs(y1_s - y0_s)
+        sx = 1 if x0_s < x1_s else -1
+        sy = 1 if y0_s < y1_s else -1
+        
+        x = x0_s
+        y = y0_s
+        
+        if dx >= dy:  # Shallow line
+            err = 2 * dy - dx
+            for i in range(dx + 1):
+                self._draw_thick_point(x, y, color, width)
+                
+                if err >= 0:
+                    y += sy
+                    err -= 2 * dx
+                x += sx
+                err += 2 * dy
+        else:  # Steep line
+            err = 2 * dx - dy
+            for i in range(dy + 1):
+                self._draw_thick_point(x, y, color, width)
+                
+                if err >= 0:
+                    x += sx
+                    err -= 2 * dy
+                y += sy
+                err += 2 * dx
+
+    def _draw_thick_point(self, x: int, y: int, color: Color, width: float):
+        """Helper buat draw thick point."""
+        radius = int((width * self.sample_rate) / 2.0)
+        
+        # Draw square pixels di sekeliling point
+        for dy in range(-radius, radius + 1):
+            for dx in range(-radius, radius + 1):
+                self.fill_sample(x + dx, y + dy, color)
     
     def rasterize_triangle(self, vertices: List[Vector2D], color: Color):
         """Rasterize a triangle using edge functions."""
@@ -429,56 +459,145 @@ class SoftwareRenderer:
         """Rasterize an image with texture sampling."""
         """
         TASK 4: Image Rasterization
-        
-        TODO: Implement image rasterization with texture sampling.
-        
-        Requirements:
-        - Map screen pixels to texture coordinates (UV mapping)
-        - Use trilinear filtering for texture sampling
-        - Handle transforms correctly
-        - Clamp texture coordinates to [0,1] range
-        
-        Steps to implement:
-        1. Define image corners in local space (x,y) to (x+width, y+height)
-        2. Transform corners to screen space using current_transform
-        3. Convert to sample space and compute bounding box
-        4. Create inverse transform to map screen back to texture space
-        5. For each pixel in bounding box:
-           - Convert sample position back to world space
-           - Calculate UV coordinates: u = (world_x - img.x) / img.width
-           - Check if UV is within [0,1] bounds
-           - Sample texture using trilinear filtering (with appropriate mip level)
-           - Fill sample with sampled color
         """
+        if not hasattr(img, 'texture') or img.texture is None:
+            return
+        
+        # Define image corners in local space (x,y) to (x+width, y+height)
+        corners = [
+            Vector2D(img.x, img.y),
+            Vector2D(img.x + img.width, img.y),
+            Vector2D(img.x + img.width, img.y + img.height),
+            Vector2D(img.x, img.y + img.height)
+        ]
+        
+        # Transform corners to screen space using current_transform
+        screen_corners = []
+        for corner in corners:
+            transformed = self.current_transform * corner
+            screen_corners.append(Vector2D(int(transformed.x), int(transformed.y)))
+        
+        sample_corners = []
+        for corner in screen_corners:
+            sample_corners.append(Vector2D(corner.x * self.sample_rate, corner.y * self.sample_rate))
+        
+        # Convert to sample space and compute bounding box
+        min_x = max(0, int(min(c.x for c in sample_corners)))
+        max_x = min(self.sample_width - 1, int(max(c.x for c in sample_corners)) + 1)
+        min_y = max(0, int(min(c.y for c in sample_corners)))
+        max_y = min(self.sample_height - 1, int(max(c.y for c in sample_corners)) + 1)
+        
+        # Create inverse transform to map screen back to texture space
+        try:
+            inverse_transform = self.current_transform.inverse()
+        except ValueError:
+            # Kalo matriks singular, gabisa render
+            return
+        
+        # Sample texture untuk setiap pixel dalam bounding box
+        for y in range(min_y, max_y + 1):
+            for x in range(min_x, max_x + 1):
+                # Convert sample position back to world space
+                screen_pos = Vector2D(x / self.sample_rate, y / self.sample_rate)
+                world_pos = inverse_transform * screen_pos
 
-        pass  # Remove this line when implementing
+                # Calculate UV coordinates
+                u = (world_pos.x - img.x) / img.width
+                v = (world_pos.y - img.y) / img.height
+                
+                # Check if UV is within [0,1] bounds
+                if 0.0 <= u <= 1.0 and 0.0 <= v <= 1.0:
+                    mip_level = 0.0
+                    # Sample texture using trilinear filtering
+                    sampled_color = img.texture.sample_trilinear(u, v, mip_level)
+                    # Fill sample with sampled color
+                    self.fill_sample(x, y, sampled_color)
     
     def draw_element(self, element: SVGElement):
         """Draw an SVG element with its transform."""
         """
         TASK 3: Transform Hierarchy - Part 1: Modeling Transforms
-        
-        TODO: Implement hierarchical transform application for SVG elements.
-        
-        Requirements:
-        - Apply element's local transform to current transform stack
-        - Draw element based on its type
-        - Properly restore transform stack when done
-        
-        Steps:
-        1. Save current transform by pushing to transform_stack
-        2. Multiply current_transform with element's local transform
-        3. Draw element based on its type (point, line, triangle, polygon, rect, image, group)
-        4. Draw child elements recursively (for groups)
-        5. Restore previous transform by popping from stack
-        
-        Transform hierarchy:
-        - Each element can have a local transform (translate, rotate, scale)
-        - Transforms accumulate down the hierarchy
-        - Child transforms are relative to parent
         """
+        # Save current transform by pushing to transform_stack
+        self.transform_stack.append(self.current_transform)
 
-        pass  # Remove this line when implementing the rest
+        # Multiply current_transform with element's local transform
+        if hasattr(element, "transform") and element.transform is not None:
+            self.current_transform = self.current_transform * element.transform
+
+        # Draw element based on its type
+        if isinstance(element, SVGPoint):
+            color = element.get_color()
+            size = getattr(element, 'size', 1.0)
+            self.rasterize_point(element.position, color, size)
+
+        elif isinstance(element, SVGLine):
+            stroke_color = element.get_stroke_color()
+            if stroke_color.a > 0:
+                stroke_width = element.get_stroke_width()
+                self.rasterize_line(element.start, element.end, stroke_color, stroke_width)
+
+        elif isinstance(element, SVGTriangle):
+            # Fill dulu, baru stroke
+            fill_color = element.get_color()
+            if fill_color.a > 0:
+                self.rasterize_triangle(element.vertices, fill_color)
+            
+            stroke_color = element.get_stroke_color()
+            if stroke_color.a > 0:
+                stroke_width = element.get_stroke_width()
+                vertices = element.vertices
+                for i in range(len(vertices)):
+                    start = vertices[i]
+                    end = vertices[(i + 1) % len(vertices)]
+                    self.rasterize_line(start, end, stroke_color, stroke_width)
+
+        elif isinstance(element, SVGPolygon):
+            # Fill dulu, baru stroke
+            fill_color = element.get_color()
+            if fill_color.a > 0:
+                self.rasterize_polygon(element.vertices, fill_color)
+            
+            stroke_color = element.get_stroke_color()
+            if stroke_color.a > 0:
+                stroke_width = element.get_stroke_width()
+                vertices = element.vertices
+                for i in range(len(vertices)):
+                    start = vertices[i]
+                    end = vertices[(i + 1) % len(vertices)]
+                    self.rasterize_line(start, end, stroke_color, stroke_width)
+
+        elif isinstance(element, SVGRect):
+            # Fill dulu, baru stroke
+            fill_color = element.get_color()
+            if fill_color.a > 0:
+                self.rasterize_rect(element.x, element.y, element.width, element.height, fill_color)
+            
+            stroke_color = element.get_stroke_color()
+            if stroke_color.a > 0:
+                stroke_width = element.get_stroke_width()
+                # Buat corners dan draw outline dengan 4 lines
+                corners = [
+                    Vector2D(element.x, element.y),
+                    Vector2D(element.x + element.width, element.y),
+                    Vector2D(element.x + element.width, element.y + element.height),
+                    Vector2D(element.x, element.y + element.height)
+                ]
+                for i in range(4):
+                    start = corners[i]
+                    end = corners[(i + 1) % 4]
+                    self.rasterize_line(start, end, stroke_color, stroke_width)
+
+        elif isinstance(element, SVGImage):
+            self.rasterize_image(element)
+
+        # Draw child elements recursively (for groups)
+        elif isinstance(element, SVGGroup):
+            for child in element.children:
+                self.draw_element(child)
+
+        # Restore previous transform by popping from stack
+        self.current_transform = self.transform_stack.pop()
     
     def draw_svg(self, svg: SVG):
         """Draw an entire SVG document."""
