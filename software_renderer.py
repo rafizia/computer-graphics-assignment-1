@@ -186,10 +186,10 @@ class SoftwareRenderer:
                 r_sum = g_sum = b_sum = a_sum = 0.0
 
                 # Accumulate all samples for this pixel
-                for sy in range(self.sample_rate):
-                    for sx in range(self.sample_rate):
-                        sx = x * self.sample_rate + sx
-                        sy = y * self.sample_rate + sy
+                for i in range(self.sample_rate):
+                    for j in range(self.sample_rate):
+                        sx = x * self.sample_rate + i
+                        sy = y * self.sample_rate + j
 
                         sample = self.sample_buffer[sy, sx]
                         r_sum += sample[0]
