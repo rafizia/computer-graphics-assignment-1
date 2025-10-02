@@ -458,80 +458,59 @@ class SoftwareRenderer:
         """Rasterize an image with texture sampling."""
         """
         TASK 4: Image Rasterization
-        
-        TODO: Implement image rasterization with texture sampling.
-        
-        Requirements:
-        - Map screen pixels to texture coordinates (UV mapping)
-        - Use trilinear filtering for texture sampling
-        - Handle transforms correctly
-        - Clamp texture coordinates to [0,1] range
-        
-        Steps to implement:
-        1. Define image corners in local space (x,y) to (x+width, y+height)
-        2. Transform corners to screen space using current_transform
-        3. Convert to sample space and compute bounding box
-        4. Create inverse transform to map screen back to texture space
-        5. For each pixel in bounding box:
-           - Convert sample position back to world space
-           - Calculate UV coordinates: u = (world_x - img.x) / img.width
-           - Check if UV is within [0,1] bounds
-           - Sample texture using trilinear filtering (with appropriate mip level)
-           - Fill sample with sampled color
         """
-        # Define corners in local image space
+        if not hasattr(img, 'texture') or img.texture is None:
+            return
+        
+        # Define image corners in local space (x,y) to (x+width, y+height)
         corners = [
             Vector2D(img.x, img.y),
             Vector2D(img.x + img.width, img.y),
-            Vector2D(img.x, img.y + img.height),
             Vector2D(img.x + img.width, img.y + img.height),
+            Vector2D(img.x, img.y + img.height)
         ]
-
-        # Transform corners to screen space
-        transformed = [self.current_transform * c for c in corners]
-
-        # Convert to sample space and bounding box
-        xs = [int(round(c.x * self.sample_rate)) for c in transformed]
-        ys = [int(round(c.y * self.sample_rate)) for c in transformed]
-
-        min_x = max(0, min(xs))
-        max_x = min(self.width * self.sample_rate - 1, max(xs))
-        min_y = max(0, min(ys))
-        max_y = min(self.height * self.sample_rate - 1, max(ys))
-
-        # Build inverse transform: screen → local image space
-        local_corners = [
-            Vector2D(img.x, img.y),
-            Vector2D(img.x + img.width, img.y),
-            Vector2D(img.x, img.y + img.height),
-        ]
-        screen_corners = transformed[:3]
-        M_screen = Matrix3x3([
-            [screen_corners[1].x - screen_corners[0].x, screen_corners[2].x - screen_corners[0].x, screen_corners[0].x],
-            [screen_corners[1].y - screen_corners[0].y, screen_corners[2].y - screen_corners[0].y, screen_corners[0].y],
-            [0, 0, 1]
-        ])
-        M_local = Matrix3x3([
-            [img.width, 0, img.x],
-            [0, img.height, img.y],
-            [0, 0, 1]
-        ])
-        M = M_screen * M_local.inverse()  # forward transform
-        M_inv = M.inverse()  # inverse transform (screen → local)
-
-        # Loop over bounding box
+        
+        # Transform corners to screen space using current_transform
+        screen_corners = []
+        for corner in corners:
+            transformed = self.current_transform * corner
+            screen_corners.append(Vector2D(int(transformed.x), int(transformed.y)))
+        
+        sample_corners = []
+        for corner in screen_corners:
+            sample_corners.append(Vector2D(corner.x * self.sample_rate, corner.y * self.sample_rate))
+        
+        # Convert to sample space and compute bounding box
+        min_x = max(0, int(min(c.x for c in sample_corners)))
+        max_x = min(self.sample_width - 1, int(max(c.x for c in sample_corners)) + 1)
+        min_y = max(0, int(min(c.y for c in sample_corners)))
+        max_y = min(self.sample_height - 1, int(max(c.y for c in sample_corners)) + 1)
+        
+        # Create inverse transform to map screen back to texture space
+        try:
+            inverse_transform = self.current_transform.inverse()
+        except ValueError:
+            # Kalo matriks singular, gabisa render
+            return
+        
+        # Sample texture untuk setiap pixel dalam bounding box
         for y in range(min_y, max_y + 1):
             for x in range(min_x, max_x + 1):
-                p_screen = Vector2D(x + 0.5, y + 0.5)
-                p_local = M_inv * p_screen
+                # Convert sample position back to world space
+                screen_pos = Vector2D(x / self.sample_rate, y / self.sample_rate)
+                world_pos = inverse_transform * screen_pos
 
-                # Compute UV
-                u = (p_local.x - img.x) / img.width
-                v = (p_local.y - img.y) / img.height
-
-                if 0 <= u <= 1 and 0 <= v <= 1:
-                    color = img.texture.sample_bilinear(u, v)
-                    self.fill_sample(x, y, color)
+                # Calculate UV coordinates
+                u = (world_pos.x - img.x) / img.width
+                v = (world_pos.y - img.y) / img.height
+                
+                # Check if UV is within [0,1] bounds
+                if 0.0 <= u <= 1.0 and 0.0 <= v <= 1.0:
+                    mip_level = 0.0
+                    # Sample texture using trilinear filtering
+                    sampled_color = img.texture.sample_trilinear(u, v, mip_level)
+                    # Fill sample with sampled color
+                    self.fill_sample(x, y, sampled_color)
     
     def draw_element(self, element: SVGElement):
         """Draw an SVG element with its transform."""
