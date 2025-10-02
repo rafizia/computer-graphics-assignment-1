@@ -149,109 +149,69 @@ class SoftwareRenderer:
         """Fill a single sample in the sample buffer."""
         """
         TASK 2: Fill Sample (Part of Supersampling)
-        
-        TODO: Fill a single sample in the sample buffer with alpha blending.
-        
-        Requirements:
-        - Bounds check to ensure x,y are within sample buffer
-        - Implement alpha blending with existing color
-        - Store final color in sample buffer
-        
-        Steps:
-        1. Check if coordinates are within bounds (0 <= x < sample_width, etc.)
-        2. Get existing color from buffer at [y, x]
-        3. Blend new color with existing using alpha blending
-        4. Store blended result back to buffer
         """
-        sample_buffer_width  = self.width  * self.sample_rate
-        sample_buffer_height = self.height * self.sample_rate
+        # Check if coordinates are within bounds
+        if 0 <= x < self.sample_width and 0 <= y < self.sample_height:
+            # Get existing color from buffer at [y, x]
+            existing = self.sample_buffer[y, x]
+            existing_color = Color(existing[0], existing[1], existing[2], existing[3])
+            
+            # Blend new color with existing using alpha blending
+            blended_color = color.alpha_blend(existing_color)
 
-        if 0 <= x < sample_buffer_width and 0 <= y < sample_buffer_height:
-            old = self.sample_buffer[y, x]
-            src = np.array([color.r, color.g, color.b, color.a], dtype=np.float32)
-
-            af = src[3]
-            ab = old[3]
-
-            out_rgb = af * src[:3] + (1 - af) * old[:3]
-            out_a   = af + (1 - af) * ab
-
-            self.sample_buffer[y, x] = [out_rgb[0], out_rgb[1], out_rgb[2], out_a]
+            # Store blended result back to buffer
+            self.sample_buffer[y, x] = [blended_color.r, blended_color.g, blended_color.b, blended_color.a]
     
     def fill_pixel(self, x: int, y: int, color: Color):
         """Fill a pixel with supersampling."""
         """
         TASK 2: Fill Pixel (Part of Supersampling)
-        
-        TODO: Fill all samples belonging to a pixel with the given color.
-        
-        Requirements:
-        - Fill all NxN samples for this pixel (where N = sample_rate)
-        - Calculate correct sample coordinates
-        - Use fill_sample() for each sample
-        
-        Steps:
-        1. For each sample within the pixel (sample_rate x sample_rate)
-        2. Calculate sample coordinates: x*sample_rate + sx, y*sample_rate + sy
-        3. Call fill_sample() for each sample coordinate
         """
-        if 0 <= x < self.width and 0 <= y < self.height:
-            for i in range(self.sample_rate):
-                for j in range(self.sample_rate):
-                    sx = x * self.sample_rate + i
-                    sy = y * self.sample_rate + j
-                    self.fill_sample(sx, sy, color)
+        # For each sample within the pixel (sample_rate x sample_rate)
+        for sy in range(self.sample_rate):
+            for sx in range(self.sample_rate):
+                # Calculate sample coordinates: x*sample_rate + sx, y*sample_rate + sy
+                sample_x = x * self.sample_rate + sx
+                sample_y = y * self.sample_rate + sy
+                
+                # Call fill_sample() for each sample coordinate
+                self.fill_sample(sample_x, sample_y, color)
     
     def resolve(self):
         """Resolve sample buffer to pixel buffer using box filter."""
         """
         TASK 2: Supersampling & Resolve
-        
-        TODO: Implement box filter averaging for anti-aliasing.
-        
-        Requirements:
-        - Average NxN samples per pixel (where N = sample_rate)
-        - Convert from high-resolution sample_buffer to final pixel_buffer
-        - Handle RGBA channels properly
-        - Bounds checking for sample buffer access
-        
-        Steps to implement:
-        1. For each pixel in the output image (width x height):
-        2. Accumulate all samples that belong to this pixel
-           - For sample_rate=2: each pixel has 2x2=4 samples
-           - Sample coordinates: x*sample_rate + sx, y*sample_rate + sy
-        3. Average the accumulated color values
-        4. Write averaged color to pixel_buffer at correct index
-        
-        Buffer layout:
-        - sample_buffer: [sample_height, sample_width, 4] float array
-        - pixel_buffer: [height * width * 4] uint8 array (RGBA interleaved)
         """
+        # For each pixel in the output image (width x height)
         for y in range(self.height):
             for x in range(self.width):
                 r_sum = g_sum = b_sum = a_sum = 0.0
 
-                for i in range(self.sample_rate):
-                    for j in range(self.sample_rate):
-                        sx = x * self.sample_rate + i
-                        sy = y * self.sample_rate + j
-                        c = self.sample_buffer[sy, sx]
-                        r_sum += c[0]
-                        g_sum += c[1]
-                        b_sum += c[2]
-                        a_sum += c[3]
+                # Accumulate all samples for this pixel
+                for sy in range(self.sample_rate):
+                    for sx in range(self.sample_rate):
+                        sx = x * self.sample_rate + sx
+                        sy = y * self.sample_rate + sy
 
-                samples_per_pixel = self.sample_rate * self.sample_rate
-                r = r_sum / samples_per_pixel
-                g = g_sum / samples_per_pixel
-                b = b_sum / samples_per_pixel
-                a = a_sum / samples_per_pixel
+                        sample = self.sample_buffer[sy, sx]
+                        r_sum += sample[0]
+                        g_sum += sample[1]
+                        b_sum += sample[2]
+                        a_sum += sample[3]
 
+                # Average the accumulated color values
+                num_samples = self.sample_rate * self.sample_rate
+                avg_r = r_sum / num_samples
+                avg_g = g_sum / num_samples
+                avg_b = b_sum / num_samples
+                avg_a = a_sum / num_samples
+
+                # Write averaged color to pixel_buffer
                 idx = (y * self.width + x) * 4
-                self.pixel_buffer[idx + 0] = int(r * 255)
-                self.pixel_buffer[idx + 1] = int(g * 255)
-                self.pixel_buffer[idx + 2] = int(b * 255)
-                self.pixel_buffer[idx + 3] = int(a * 255)
+                self.pixel_buffer[idx + 0] = int(avg_r * 255)
+                self.pixel_buffer[idx + 1] = int(avg_g * 255)
+                self.pixel_buffer[idx + 2] = int(avg_b * 255)
+                self.pixel_buffer[idx + 3] = int(avg_a * 255)
     
     def rasterize_point(self, point: Vector2D, color: Color, size: float = 1.0):
         """Rasterize a point."""
