@@ -44,20 +44,18 @@ class Viewport:
         """Get transformation matrix from viewport space to normalized space."""
         """
         TASK 3: Viewing Transforms - Get Canvas to Normalized Transform
-        
-        TODO: Create transformation matrix from canvas space to normalized space.
-        
-        Requirements:
-        - Transform canvas region [x-span, x+span] x [y-span, y+span] to [-1,1] x [-1,1]
-        - Use viewport parameters (self.x, self.y, self.span)
-        - Return proper transformation matrix
         """
-        # Translate center (x,y) to origin
-        T = Matrix3x3.translation(-self.x, -self.y)
-        # Scale so that span maps to 1, range becomes [-1,1]
-        S = Matrix3x3.scale(1.0 / self.span, 1.0 / self.span)
-
-        return S * T
+        # Transform canvas region [x-span, x+span] x [y-span, y+span] ke [-1,1] x [-1,1]
+        scale = 1.0 / self.span
+        tx = -self.x * scale
+        ty = -self.y * scale
+        
+        # Me-return matrix dengan scale dan translate yang sudah dihitung
+        return Matrix3x3([
+            [scale, 0, tx],
+            [0, scale, ty],
+            [0, 0, 1]
+        ])
 
 class ViewportImp(Viewport):
     """Implementation class for viewport with additional functionality."""
@@ -539,35 +537,21 @@ class SoftwareRenderer:
         """Draw an SVG element with its transform."""
         """
         TASK 3: Transform Hierarchy - Part 1: Modeling Transforms
-        
-        TODO: Implement hierarchical transform application for SVG elements.
-        
-        Requirements:
-        - Apply element's local transform to current transform stack
-        - Draw element based on its type
-        - Properly restore transform stack when done
-        
-        Steps:
-        1. Save current transform by pushing to transform_stack
-        2. Multiply current_transform with element's local transform
-        3. Draw element based on its type (point, line, triangle, polygon, rect, image, group)
-        4. Draw child elements recursively (for groups)
-        5. Restore previous transform by popping from stack
-        
-        Transform hierarchy:
-        - Each element can have a local transform (translate, rotate, scale)
-        - Transforms accumulate down the hierarchy
-        - Child transforms are relative to parent
         """
-        # Save current transform
+        # Save current transform by pushing to transform_stack
         self.transform_stack.append(self.current_transform)
 
-        # Apply local transform
+        # Multiply current_transform with element's local transform
         if hasattr(element, "transform") and element.transform is not None:
             self.current_transform = self.current_transform * element.transform
 
         # Draw element based on its type
-        if isinstance(element, SVGLine):
+        if isinstance(element, SVGPoint):
+            color = element.get_color()
+            size = getattr(element, 'size', 1.0)
+            self.rasterize_point(element.position, color, size)
+
+        elif isinstance(element, SVGLine):
             color = element.get_stroke_color()
             width = element.get_stroke_width()
             self.rasterize_line(element.start, element.end, color, width)
@@ -599,7 +583,7 @@ class SoftwareRenderer:
             for child in element.children:
                 self.draw_element(child)
 
-        # Restore previous transform
+        # Restore previous transform by popping from stack
         self.current_transform = self.transform_stack.pop()
     
     def draw_svg(self, svg: SVG):
