@@ -199,19 +199,23 @@ class Color:
     
     def alpha_blend(self, background: 'Color') -> 'Color':
         """Alpha blend this color over background color."""
-        """TASK 5: Alpha Compositing"""
-        # Mengambil alpha dari foreground dan menghitung inverse
+        """
+        TASK 5: Alpha Compositing
+        """
+        # Extract alpha from foreground (self.a)
         alpha = self.a
+        # Calculate inverse alpha (1 - alpha)
         inv_alpha = 1.0 - alpha
         
-        # Blend setiap channel RGB (buat result RGB)
+        # Blend each RGB channel
         result_r = alpha * self.r + inv_alpha * background.r
         result_g = alpha * self.g + inv_alpha * background.g
         result_b = alpha * self.b + inv_alpha * background.b
         
-        # Blend alpha channel (buat result alpha)
+        # Blend alpha channel
         result_a = alpha + inv_alpha * background.a
         
+        # Return new Color with blended values
         return Color(result_r, result_g, result_b, result_a)
     
     def __mul__(self, factor: float) -> 'Color':
