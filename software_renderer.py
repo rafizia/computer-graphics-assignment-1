@@ -531,33 +531,66 @@ class SoftwareRenderer:
             self.rasterize_point(element.position, color, size)
 
         elif isinstance(element, SVGLine):
-            color = element.get_stroke_color()
-            width = element.get_stroke_width()
-            self.rasterize_line(element.start, element.end, color, width)
+            stroke_color = element.get_stroke_color()
+            if stroke_color.a > 0:
+                stroke_width = element.get_stroke_width()
+                self.rasterize_line(element.start, element.end, stroke_color, stroke_width)
 
         elif isinstance(element, SVGTriangle):
-            color = element.get_color()
-            self.rasterize_triangle(element.vertices, color)
+            # Fill dulu, baru stroke
+            fill_color = element.get_color()
+            if fill_color.a > 0:
+                self.rasterize_triangle(element.vertices, fill_color)
+            
+            stroke_color = element.get_stroke_color()
+            if stroke_color.a > 0:
+                stroke_width = element.get_stroke_width()
+                vertices = element.vertices
+                for i in range(len(vertices)):
+                    start = vertices[i]
+                    end = vertices[(i + 1) % len(vertices)]
+                    self.rasterize_line(start, end, stroke_color, stroke_width)
 
         elif isinstance(element, SVGPolygon):
-            verts = element.vertices
-            if len(verts) >= 3:
-                color = element.get_color()
-                for i in range(1, len(verts) - 1):
-                    self.rasterize_triangle([verts[0], verts[i], verts[i+1]], color)
+            # Fill dulu, baru stroke
+            fill_color = element.get_color()
+            if fill_color.a > 0:
+                self.rasterize_polygon(element.vertices, fill_color)
+            
+            stroke_color = element.get_stroke_color()
+            if stroke_color.a > 0:
+                stroke_width = element.get_stroke_width()
+                vertices = element.vertices
+                for i in range(len(vertices)):
+                    start = vertices[i]
+                    end = vertices[(i + 1) % len(vertices)]
+                    self.rasterize_line(start, end, stroke_color, stroke_width)
 
         elif isinstance(element, SVGRect):
-            x0, y0 = element.x, element.y
-            x1, y1 = x0 + element.width, y0 + element.height
-            v0, v1, v2, v3 = Vector2D(x0, y0), Vector2D(x1, y0), Vector2D(x0, y1), Vector2D(x1, y1)
-
-            color = element.get_color()
-            self.rasterize_triangle([v0, v1, v2], color)
-            self.rasterize_triangle([v2, v1, v3], color)
+            # Fill dulu, baru stroke
+            fill_color = element.get_color()
+            if fill_color.a > 0:
+                self.rasterize_rect(element.x, element.y, element.width, element.height, fill_color)
+            
+            stroke_color = element.get_stroke_color()
+            if stroke_color.a > 0:
+                stroke_width = element.get_stroke_width()
+                # Buat corners dan draw outline dengan 4 lines
+                corners = [
+                    Vector2D(element.x, element.y),
+                    Vector2D(element.x + element.width, element.y),
+                    Vector2D(element.x + element.width, element.y + element.height),
+                    Vector2D(element.x, element.y + element.height)
+                ]
+                for i in range(4):
+                    start = corners[i]
+                    end = corners[(i + 1) % 4]
+                    self.rasterize_line(start, end, stroke_color, stroke_width)
 
         elif isinstance(element, SVGImage):
             self.rasterize_image(element)
 
+        # Draw child elements recursively (for groups)
         elif isinstance(element, SVGGroup):
             for child in element.children:
                 self.draw_element(child)
